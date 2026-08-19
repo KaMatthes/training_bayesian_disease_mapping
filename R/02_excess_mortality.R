@@ -4,7 +4,7 @@ rm(list=ls())
 source("R/00_setup.R")
 
 
-# plotting pararmater
+# define plot parameters
 axis_text_size <- 20
 plot_title_size <- 25
 lwd_size <- 1.5
@@ -12,17 +12,14 @@ point_size <- 3
 pd <- position_dodge(width=0.4) # space between the line in the coefficient plot
 fatten_size <- 8 # make the lines thicker
 
-
 # load your data
 dtd <- read.csv("data/deaths_copen.csv", sep = ";") 
   
 # load your shapefiles
-
 dts <- st_read("data/shapefiles/Polygonbasis_183_eli.shp") %>%
   rename (District = BEZNR)
 
 # create your neighboorhood list, QUEEN is the default
-
 nbk <- poly2nb(dts, dts$District)  # build neighbours list
 nb2INLA("data/Districts", nbk) # build spatial neighbours for INLA
 
@@ -77,8 +74,6 @@ formula <-   death_mod ~ 1 + offset(log(pop)) +
   f(Year,model = "rw2", hyper = hyper.year, constr = TRUE, scale.model=TRUE) + 
   f(Region, model="bym2", graph="data/Districts", hyper = hyper.bym ) # random effect, spatial 
 
-
-
 set.seed(20260818) # to get always the sanme results
 
 # INLA 
@@ -93,24 +88,24 @@ inla.mod <- inla(formula,
                    waic = TRUE,
                    cpo = TRUE)) # for model comparison
 
-
 summary(inla.mod)
 
 # get the posterior distribution, not only the fitted value
-
 # We draw 1,000 plausible realizations from the fitted posterior distribution
 post.samples <- inla.posterior.sample(n = 1000, result = inla.mod, seed=20261808)
 
-# get the predicted values from 1000 samples and transform the prediction from the log scale back to the mortality-rate scale
+# get the predicted values from 1000 samples and transform the prediction from the 
+# log scale back to the mortality-rate scale
 
 predlist <- do.call(cbind, lapply(post.samples, function(X)
   exp(X$latent[startsWith(rownames(X$latent), "Pred")]))) 
 
-
+# unlist the predicted values
 dtr <-array(unlist( predlist), dim=c(dim(dt)[1], 1000)) %>%
   as.data.frame() %>%
   cbind(dt)
 
+# create a matrix of the 1000 samples to summarize them in the next step
 sample_matrix <- as.matrix(dtr %>%  select(starts_with("V")))
 
 # get the data, estimate excess mortality
@@ -123,18 +118,19 @@ results <- dtr %>%
   ) %>% 
   left_join(dt) %>%
   mutate(
+  # excess mortality
     exc = deaths - fit,
     exc_ll = deaths-UL,
     exc_ul = deaths-LL,
-
+  # calculate the p-score in percentage
     p_score = exc/fit *100,
+  # define with observed death is above UL and defined as excess
     col_sig = ifelse(deaths > UL, "yes", "no"))
 
-# Year plot 4 districts as examples
+# Plot 4 districts as examples
 
 dty <- results %>%
-  filter(District %in% c(111,2500,2207,1901))
-
+  filter(District %in% c(111,2500,2207,1901)) # filter which districts
 
 ggplot(dty) +
   geom_ribbon(aes(ymin=LL, ymax=UL,x=Year),fill="grey80",linetype=1, alpha=1) +
@@ -161,19 +157,23 @@ ggplot(dty) +
 
 ggsave("excess_mortality.png",h=10,w=22)
 
-# plot the results
+####################
+# Plot the results #
+####################
 
+# link results and shape files
 dt2 <- dts %>%
   left_join(results) %>%
   filter(Year == 1918) %>%
   mutate(
+   # calculate quantiles for the maps
     p_score_quar = cut( p_score,
                         breaks = c(min(p_score, na.rm = TRUE),0,quantile(p_score[p_score > 0], probs = seq(0.2, 1, 0.2), na.rm = TRUE)),
                         include.lowest = TRUE,
-                        dig.lab = 3
-    )
-  )
+                        dig.lab = 3)
+						)
 
+# plot map with p-scores
 
 ggplot(dt2) +
   geom_sf(aes(fill = p_score_quar),color = "black", linewidth = 0.1) +
@@ -191,12 +191,11 @@ ggplot(dt2) +
     legend.position = "bottom"
   )
 
-
 ggsave("maps_p_score.png",h=10,w=20)
 
 # Which demographic and socioeconomic factors were associated with higher mortality during the 1918–1919 influenza pandemic?
 
-dt3 <- dt2 %>% # scale data so that it is better comparable
+dt3 <- dt2 %>% # scale data so that it is better comparable 
   mutate(
       dens_doc= scale(dens_doc),
       share_male= scale(share_male),
@@ -210,6 +209,7 @@ dt3 <- dt2 %>% # scale data so that it is better comparable
       household_size= scale(household_size),
   )
 
+# robust linear regression
 Mod1 <- coef(summary(rlm(p_score ~ gdp, data=dt3)))
 Mod2 <- coef(summary(rlm(p_score ~ share_industry, data=dt3)))
 Mod3 <- coef(summary(rlm(p_score ~ dens_doc, data=dt3)))
@@ -221,18 +221,21 @@ Mod8 <- coef(summary(rlm(p_score ~ share_20_39, data=dt3)))
 Mod9 <-  coef(summary(rlm(p_score ~ share_60, data=dt3)))
 Mod10 <- coef(summary(rlm(p_score ~ dens_pop, data=dt3)))
 
-
+# combine the results of the model
 res_uni <- rbind(Mod1, Mod2, Mod3, Mod4, Mod5, Mod6, Mod7, Mod8, Mod9,Mod10) %>%
   data.frame() %>%
   mutate(Cofactor=row.names(.)) %>%
   filter( Cofactor=="gdp" | Cofactor=="share_industry" |   Cofactor=="dens_doc"|  Cofactor=="houshold_house"| Cofactor=="household_size"|
             Cofactor=="share_male" | Cofactor=="share_5_14" |   Cofactor=="share_20_39"| 
             Cofactor=="share_60" |   Cofactor=="dens_pop") %>%
-  mutate(est= round(Value,2),
-         Cl = round(Value - 1.96* Std..Error,2),
-         Cu = round(Value + 1.96* Std..Error,2),
-         Univariate = paste0(est," (",Cl,"-",Cu, ")"),
-         Cofactor = recode( Cofactor, 
+  mutate(
+  # get coefficient and 95% confidence intervals
+  est= round(Value,2),
+  Cl = round(Value - 1.96* Std..Error,2),
+  Cu = round(Value + 1.96* Std..Error,2),
+  Univariate = paste0(est," (",Cl,"-",Cu, ")"),
+  # change names of the factors
+  Cofactor = recode(Cofactor, 
                               "dens_doc" = "Private physicians per km2",
                               "share_male"  = "Share of men",
                               "share_5_14"  = "Share of 5-14 years old",
@@ -243,7 +246,8 @@ res_uni <- rbind(Mod1, Mod2, Mod3, Mod4, Mod5, Mod6, Mod7, Mod8, Mod9,Mod10) %>%
                               "dens_pop"    = "Population density",
                               "houshold_house"  = "Households per house",
                               "household_size" = "Household size"),
-         Cofactor = factor(Cofactor, 
+# reorder factors in the order they should appear in the plot
+	Cofactor = factor(Cofactor, 
                            levels = c("Population density",
                                       "GDP per capita",
                                       "Share of industry",

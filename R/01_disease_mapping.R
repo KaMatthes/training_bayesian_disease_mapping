@@ -3,8 +3,7 @@
 rm(list=ls())
 source("R/00_setup.R")
 
-
-# plotting pararmater
+# define plot parameters
 axis_text_size <- 20
 plot_title_size <- 25
 lwd_size <- 1.5
@@ -33,8 +32,6 @@ dt <- poly2nb(dts, dts$District) %>%
   rename(District = ".") %>%
   mutate(Region = 1:183)  %>%
   left_join(dtc)
-
-
 
 #####################
 # Statistical model #
@@ -128,12 +125,15 @@ post.samples <- inla.posterior.sample(n = 1000, result = inla.mod, seed=20261808
 predlist <- do.call(cbind, lapply(post.samples, function(X)
   exp(X$latent[startsWith(rownames(X$latent), "Pred")]))) 
 
-
+# unlist the predicted values
 dtr <-array(unlist( predlist), dim=c(dim(dt)[1], 1000)) %>%
   as.data.frame() %>%
   cbind(dt)
-
+  
+# create a matrix of the 1000 samples to summarize in the next step
 sample_matrix <- as.matrix(dtr %>%  select(starts_with("V")))
+
+# summarize the 1000 samples per district
 
 results <- dtr %>%
   select(Region, District) %>%
@@ -144,6 +144,7 @@ results <- dtr %>%
   ) %>% 
   left_join(dt) %>%
   mutate(
+  # calculate quantiles for the maps
     fit_quar = ntile(fit, 5),
     fit_quar= factor(fit_quar,levels = 1:5,labels = c("Q1", "Q2", "Q3", "Q4", "Q5")),
     case_quar = ntile(cases, 5),
@@ -151,8 +152,11 @@ results <- dtr %>%
     
   )
 
-# plot the results
+####################
+# Plot the results #
+####################
 
+# link results with shapefiles
 dt2 <- dts %>%
   left_join(results)  
 
@@ -174,11 +178,9 @@ ggplot(dt2) +
     legend.position = "bottom"
   )
 
-
 ggsave("maps_observed.png",h=10,w=20)
 
 # plot fitted values in quantile
-
 ggplot(dt2) +
   geom_sf(aes(fill = fit_quar),color = "black", linewidth = 0.1) +
   scale_fill_brewer(
@@ -197,7 +199,6 @@ ggplot(dt2) +
   )
 
 ggsave("maps_fitted.png",h=10,w=20)
-
 
 # bivariate map
 # create the data for a bivariate map
@@ -231,10 +232,9 @@ legend <- bi_legend(
     axis.text = element_text(size = axis_text_size)
   )
 
-
+# combine plot and legend
 ggdraw() +
   draw_plot(biplot, 0, 0.05, 1, 1) +
   draw_plot(legend, 0.05, 0.7, 0.25, 0.25)
-
 
 ggsave("maps_bivariate.png",h=10,w=20)
