@@ -22,7 +22,7 @@ dts <- st_read("data/shapefiles/Polygonbasis_183_eli.shp") %>%
 # create your neighboorhood list, QUEEN is the default
 
 nbk <- poly2nb(dts, dts$District)  # build neighbours list
-nb2INLA("data/Districts", nbk) # build spatial neighbours for INLA
+nb2INLA("data/Districts", nbk) # build spatial neighbours for INLA and save it
 
 # link data and spatial data
 
