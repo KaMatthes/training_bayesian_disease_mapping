@@ -90,8 +90,9 @@ inla.mod <- inla(formula,
 
 summary(inla.mod)
 
-# get the posterior distribution, not only the fitted value
-# We draw 1,000 plausible realizations from the fitted posterior distribution
+
+# get the posterior distribution with all information
+# It generates random draws (here 1000 )from INLA's approximation to get the posterior distribution
 post.samples <- inla.posterior.sample(n = 1000, result = inla.mod, seed=20261808)
 
 # get the predicted values from 1000 samples and transform the prediction from the 

@@ -82,18 +82,18 @@ summary(inla.mod)
 
 # plot fix effect
 
-# Get marginal fixed effect of GPP
+# Get the effect of the co-factor on the outcome
 ind_marg <- inla.mod$marginals.fixed[["share_industry"]]
 
 # Transform whole posterior to RR scale
 ind_RR <- inla.tmarginal(exp, ind_marg)
 
-# Median and 95% CrI
+#  get Median and 95% CrI
 ind_median <- inla.qmarginal(0.5, ind_RR )
 ind_LL     <- inla.qmarginal(0.025, ind_RR )
 ind_UL     <- inla.qmarginal(0.975, ind_RR)
 
-# Plot distribution
+# Plot distribution of the fixed effect
 
 ggplot(ind_RR, aes(x = x, y = y)) +
   geom_line(linewidth = 1) +
@@ -115,12 +115,14 @@ ggplot(ind_RR, aes(x = x, y = y)) +
 
 ggsave("share_industry.png",h=10,w=20)
 
-# get the posterior distribution, not only the fitted value
 
-# We draw 1,000 plausible realizations from the fitted posterior distribution
+# get the posterior distribution with all information
+# It generates random draws (here 1000 )from INLA's approximation to get the posterior distribution
+
 post.samples <- inla.posterior.sample(n = 1000, result = inla.mod, seed=20261808)
 
-# get the predicted values from 1000 samples and transform the prediction from the log scale back to the mortality-rate scale
+# get the predicted values from 1000 samples and transform the prediction 
+# from the log scale back to the mortality-rate scale
 
 predlist <- do.call(cbind, lapply(post.samples, function(X)
   exp(X$latent[startsWith(rownames(X$latent), "Pred")]))) 
