@@ -3,11 +3,12 @@
 rm(list=ls())
 source("R/00_setup.R")
 
+set.seed(20260818) # to get always the sanme results
+
 # define plot parameters
 axis_text_size <- 20
 plot_title_size <- 25
 lwd_size <- 1.5
-
 
 # load your data
 
@@ -59,11 +60,8 @@ hyper.bym <- list(
 
 # formular for share_industry
 
-formula <- cases ~ 1 + share_industry+ offset(log(pop)) +
-  f(Region, model="bym2", graph="data/Districts", hyper = hyper.bym ) # random effect, spatial 
-
-
-set.seed(20260818) # to get always the sanme results
+formula <- cases ~  share_industry + offset(log(pop)) +
+  f(Region, model="bym2", graph="data/Districts", hyper = hyper.bym) # random effect, spatial 
 
 # INLA 
 inla.mod <- inla(formula,
@@ -75,7 +73,7 @@ inla.mod <- inla(formula,
                    config = TRUE,  # to use inla.posterior.sample later
                    dic = TRUE,
                    waic = TRUE,
-                   cpo = TRUE)) # for model comparison
+                   cpo = TRUE)) # for model comparison you need to set in TRUE
 
 
 summary(inla.mod)
@@ -85,7 +83,7 @@ summary(inla.mod)
 # Get the effect of the co-factor on the outcome
 ind_marg <- inla.mod$marginals.fixed[["share_industry"]]
 
-# Transform whole posterior to RR scale
+# Transform the log into exp of whole posterior to RR scale
 ind_RR <- inla.tmarginal(exp, ind_marg)
 
 #  get Median and 95% CrI
@@ -127,7 +125,7 @@ post.samples <- inla.posterior.sample(n = 1000, result = inla.mod, seed=20261808
 predlist <- do.call(cbind, lapply(post.samples, function(X)
   exp(X$latent[startsWith(rownames(X$latent), "Pred")]))) 
 
-# unlist the predicted values
+# unlist the predicted values to get a data frame
 dtr <-array(unlist( predlist), dim=c(dim(dt)[1], 1000)) %>%
   as.data.frame() %>%
   cbind(dt)

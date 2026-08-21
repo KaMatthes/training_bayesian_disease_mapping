@@ -70,8 +70,8 @@ hyper.year <- list(
 
 # formular for share_industry
 
-formula <-   death_mod ~ 1 + offset(log(pop)) + 
-  f(Year,model = "rw2", hyper = hyper.year, constr = TRUE, scale.model=TRUE) + 
+formula <-   death_mod ~ offset(log(pop)) + 
+  f(Year,model = "rw2", hyper = hyper.year, constr = TRUE, scale.model=TRUE) + # secular trend 
   f(Region, model="bym2", graph="data/Districts", hyper = hyper.bym ) # random effect, spatial 
 
 set.seed(20260818) # to get always the sanme results

@@ -5,9 +5,9 @@ if (!require(sf)) install.packages("sf")
 if (!require(spdep)) install.packages("spdep")
 if (!require(matrixStats)) install.packages("matrixStats")
 if (!require(biscale)) install.packages("biscale")
-if (!require(biscale)) install.packages("cowplot")
-if (!require(biscale)) install.packages("MASS")
-if (!require(biscale)) install.packages("conflicted")
+if (!require(cowplot)) install.packages("cowplot")
+if (!require(MASS)) install.packages("MASS")
+if (!require(conflicted)) install.packages("conflicted")
 
 
 
